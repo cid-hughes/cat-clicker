@@ -1,0 +1,128 @@
+.opened {
+    display: block;
+}
+
+button {
+    font-family: 'Bree Serif', serif;
+}
+
+.closed {
+    display: none;
+}
+
+
+#admin {
+    margin-left: 4%;
+    line-height: 3;
+}
+
+#cancelLink {
+    margin-right: 1.5em;
+}
+
+label {
+    margin-right: 1em;
+}
+
+/* Three columns side by side */
+.column {
+    float: left;
+    width: 30.3%;
+    margin-bottom: 16px;
+    padding: 0 8px;
+}
+
+div#first {
+    margin-left: 17%;
+}
+
+img#cat-img {
+    max-width: 90%;
+}
+
+/* Display the columns below each other instead of side by side on small screens */
+@media screen and (max-width: 650px) {
+    .column {
+        width: 98%;
+        display: block;
+    }
+
+    div#first {
+        margin-left: 0;
+    }
+
+    .column {
+        margin-left: 0;
+    }
+}
+
+/* Add some shadows to create a card effect */
+.card {
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Some left and right padding inside the container */
+.container {
+    padding-top: 1em;
+    padding-left: 2em;
+}
+
+/* Clear floats */
+.container::after, .row::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+.title {
+    color: grey;
+}
+
+body {
+    font-family: 'Bree Serif', serif;
+    margin-top: 4%;
+}
+
+h2 {
+    font-size: 2vw;
+    font-family: 'Bree Serif', serif;
+    line-height: 1;
+}
+
+p {
+    font-size: 1vw;
+    font-family: 'Bree Serif', serif;
+}
+
+.tab {
+    float: left;
+    border: 1px solid #ccc;
+    background-color: #f1f1f1;
+    width: 24%;
+    height: 30em;
+    margin-left: 5%;
+}
+
+.tab li {
+    display: block;
+    background-color: inherit;
+    color: black;
+    padding: 22px 16px;
+    width: 86%;
+    border: none;
+    outline: none;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 2em;
+}
+
+/* Change background color of buttons on hover */
+.tab li:hover {
+    background-color: #ddd;
+}
+
+/* Create an active/current "tab button" class */
+.tab li.active {
+    background-color: #ccc;
+}
