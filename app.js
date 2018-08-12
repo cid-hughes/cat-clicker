@@ -27,24 +27,34 @@ var model = {
             count: 0
         }
     ],
-
     list: function() {
-        return this.data.map(e=>{return {name: e.name};});
+        return this.data.map((e,i)=>{ return {id: i, name: e.name}; });
     },
-    create: function(data) {
+    insert: function(data) {
         if (!data.name || !data.image) return null;
-        this.data.push({name: data.name, image: data.image, count: data.count?data.count:0});
+        this.data.push(Object.keys(this.data[0]).reduce((a,e)=>{
+            a[e] = data[e]?data[e]:0;
+            return a;
+        }, {}));
         return this.data.length - 1;
     },
-    get: function(id) {
-        return this.data[id];
+    select: function(id) {
+        if (typeof parseInt(id)!=="number" || id<0 || id>=this.data.length) return;
+        let data = Object.create(this.data[id]);
+        data['fields'] = Object.keys(this.data[id]);
+        data['id'] = id;
+        return data;
     },
-    set: function(id, data) {
-        if (data.name) this.data[id].name = data.name;
-        if (data.image) this.data[id].image = data.image;
-        if (data.count !== undefined) this.data[id].count = data.count;
+    update: function(data) {
+        if (typeof parseInt(data.id)!=="number" || data.id<0 || data.id>=this.data.length) return;
+        Object.keys(this.data[data.id]).forEach(e=>{ if (data[e]!==undefined) this.data[data.id][e]=data[e]; });
+    },
+    remove: function(id) {
+        if (typeof parseInt(id)!=="number" || id<0 || id>=this.data.length || this.data.length<2) return;
+        this.data.splice(id, 1);
     },
     incrementCount: function(id) {
+        if (typeof parseInt(id)!=="number" || id<0 || id>=this.data.length) return;
         this.data[id].count++;
     }
 };
@@ -52,49 +62,40 @@ var model = {
 /* ======= Controller ======= */
 var octopus = {
     init: function() {
-        catView.init();
+        let cat = model.select(0);
+        catView.init(cat.fields);
+        this.refresh(cat);
+    },
+    refresh: function(data) {
         catView.catList(model.list());
-
-        let cat = model.get(0);
-        cat.id = 0;
-        catView.catView(cat);
-        catView.adminView(cat);
+        catView.catView(data);
+        catView.adminView(data);
     },
     catClick: function(id) {
-        let cat = model.get(id);
-        cat.id = id;
-        catView.catView(cat);
-        catView.adminView(cat);
+        this.refresh(model.select(id));
     },
     incrementCounter: function(id) {
         model.incrementCount(id);
-        let cat = model.get(id);
-        cat.id = id;
-        catView.catView(cat);
-        catView.adminView(cat);
+        this.refresh(model.select(id));
     },
     toggleAdmin: function() {
         catView.toggleAdmin();
     },
     updateCat: function(data) {
-        model.set(data.id, data);
-        let cat = model.get(data.id);
-        cat.id = data.id;
-        catView.catView(cat);
-        catView.adminView(cat);
         catView.toggleAdmin();
+        model.update(data);
+        this.refresh(model.select(data.id));
     },
-    createCat: function(data) {
+    newCat: function(data) {
         catView.toggleAdmin();
-
-        let id = model.create(data);
+        let id = model.insert(data);
         if (id === null) return;
-
-        catView.catList(model.list());
-        let cat = model.get(id);
-        cat.id = id;
-        catView.catView(cat);
-        catView.adminView(cat);
+        this.refresh(model.select(id));
+    },
+    removeCat: function(id) {
+        catView.toggleAdmin();
+        model.remove(id);
+        this.refresh(model.select(0));
     }
 };
 
@@ -103,96 +104,78 @@ var catView = {
     showAdmin: false,
     pages: {},
 
-    init: function() {
+    init: function(fields) {
         this.catListInit();
-        this.catViewInit();
-        this.adminViewInit();
+        this.catViewInit(fields);
+        this.adminViewInit(fields);
     },
 
     // List View
     catListInit: function() {
-        this.pages[catList] = document.getElementById('catList');
+        this.pages.catList = document.getElementById('catList');
     },
     catList: function(data) {
-        this.pages[catList].innerHTML = '';
-
-        data.forEach((e,i)=>{
+        this.pages.catList.innerHTML = '';
+        data.forEach(e=>{
             let li = document.createElement('li');
             li.textContent = e.name;
-            li.addEventListener('click', ()=>octopus.catClick(i));
-            this.pages[catList].appendChild(li);
+            li.addEventListener('click', ()=>octopus.catClick(e.id));
+            this.pages.catList.appendChild(li);
         });
     },
 
     // Cat View
-    catViewInit: function() {
-        this.pages.catView = {
-            name: document.getElementById('cat-name'),
-            image: document.getElementById('cat-img'),
-            count: document.getElementById('cat-count')
-        };
+    catViewInit: function(fields) {
+        this.pages.catView = {};
+        fields.forEach(p=>this.pages.catView[p] = document.getElementById('card-' + p));
         this.pages.catView.image.addEventListener('click', ()=>octopus.incrementCounter(
-            document.getElementById('updateForm').elements['catId'].value
+            document.getElementById('updateForm').elements['form-id'].value
         ));
     },
     catView: function(data) {
-        this.pages.catView.name.textContent = data.name;
-        this.pages.catView.image.src = data.image;
-        this.pages.catView.count.textContent = data.count;
+        data.fields.forEach(p=>this.pages.catView[p][ p=='image'?'src':'textContent' ] = data[p]);
     },
 
     // Admin View
-    adminViewInit: function() {
+    adminViewInit: function(fields) {
         let form = document.getElementById('updateForm');
+        this.pages.adminView = {};
+        this.pages.adminView.form = document.getElementById('adminForm');
+        this.pages.adminView.id = form.elements['form-id'];
+        fields.forEach(p=>this.pages.adminView[p] = form.elements['form-' + p]);
 
-        let id = document.createElement('input');
-        id.type = 'hidden';
-        id.name = 'catId';
-        id.value = '0';
-        form.appendChild(id);
-
-        let newBtn = document.createElement('button');
-        newBtn.id = 'catNew';
-        newBtn.textContent = 'New';
-        document.getElementById('adminForm').appendChild(newBtn);
-
-        this.pages.adminView = {
-            form: document.getElementById('adminForm'),
-            id: id,
-            name: form.elements['catName'],
-            image: form.elements['catImage'],
-            count: form.elements['catClicks']
-        };
-        document.getElementById('adminBtn').addEventListener('click', ()=>{
+        document.getElementById('btn-admin').addEventListener('click', ()=>{
             octopus.toggleAdmin();
         });
-        document.getElementById('saveBtn').addEventListener('click', ()=>{
+        document.getElementById('btn-new').addEventListener('click', ()=>{
             let cat = {};
-            cat.id = form.elements['catId'].value;
-            if (form.elements['catName'].value) cat.name = form.elements['catName'].value;
-            if (form.elements['catImage'].value) cat.image = form.elements['catImage'].value;
-            if (form.elements['catClicks'].value !== '') cat.count = form.elements['catClicks'].value;
+            fields.forEach(p=>cat[p] = this.pages.adminView[p].value);
+            octopus.newCat(cat);
+        });
+        document.getElementById('btn-save').addEventListener('click', ()=>{
+            let cat = { id: this.pages.adminView.id.value };
+            fields.forEach(p=>{
+                if (this.pages.adminView[p].value !=='') cat[p] = this.pages.adminView[p].value;
+            });
             octopus.updateCat(cat);
         });
-        document.getElementById('cancelLink').addEventListener('click', ()=>{
-            form.elements['catName'].value = '';
-            form.elements['catImage'].value = '';
-            form.elements['catClicks'].value = '';
+        document.getElementById('btn-cancel').addEventListener('click', ()=>{
+            fields.forEach(p=>this.pages.adminView[p].value = '');
             this.toggleAdmin();
         });
-        newBtn.addEventListener('click', ()=>{
-            let cat = {};
-            cat.name = form.elements['catName'].value;
-            cat.image = form.elements['catImage'].value;
-            cat.count = form.elements['catClicks'].value;
-            octopus.createCat(cat);
+        document.getElementById('btn-delete').addEventListener('click', ()=>{
+            octopus.removeCat(this.pages.adminView.id.value);
+        });
+
+        document.getElementById('btn-dump').addEventListener('click', ()=>{
+            model.data.forEach((e,i)=>Object.keys(model.data[0]).forEach(p=>console.log(i+'-'+p+':'+e[p])));
         });
     },
     adminView: function(data) {
         this.pages.adminView.id.value = data.id;
-        ['name','image','count'].forEach(e=>{
-            this.pages.adminView[e].value = '';
-            this.pages.adminView[e].placeholder = data[e];
+        data.fields.forEach(p=>{
+            this.pages.adminView[p].value = '';
+            this.pages.adminView[p].placeholder = data[p];
         });
     },
     toggleAdmin: function() {
@@ -208,4 +191,6 @@ var catView = {
 
 /* ======= Initialize ======= */
 
-octopus.init();
+window.onload = function() {
+    octopus.init();
+};

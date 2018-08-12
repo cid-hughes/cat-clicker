@@ -16,10 +16,6 @@ button {
     line-height: 3;
 }
 
-#cancelLink {
-    margin-right: 1.5em;
-}
-
 label {
     margin-right: 1em;
 }
@@ -36,7 +32,7 @@ div#first {
     margin-left: 17%;
 }
 
-img#cat-img {
+img#card-image {
     max-width: 90%;
 }
 
@@ -99,7 +95,6 @@ p {
     border: 1px solid #ccc;
     background-color: #f1f1f1;
     width: 24%;
-    height: 30em;
     margin-left: 5%;
 }
 
