@@ -39,22 +39,22 @@ var model = {
         return this.data.length - 1;
     },
     select: function(id) {
-        if (typeof parseInt(id)!=="number" || id<0 || id>=this.data.length) return;
+        if (parseInt(id)<0 || parseInt(id)>=this.data.length) return;
         let data = Object.create(this.data[id]);
         data['fields'] = Object.keys(this.data[id]);
         data['id'] = id;
         return data;
     },
     update: function(data) {
-        if (typeof parseInt(data.id)!=="number" || data.id<0 || data.id>=this.data.length) return;
+        if (parseInt(data.id)<0 || parseInt(data.id)>=this.data.length) return;
         Object.keys(this.data[data.id]).forEach(e=>{ if (data[e]!==undefined) this.data[data.id][e]=data[e]; });
     },
     remove: function(id) {
-        if (typeof parseInt(id)!=="number" || id<0 || id>=this.data.length || this.data.length<2) return;
+        if (parseInt(id)<0 || parseInt(id)>=this.data.length || this.data.length<2) return;
         this.data.splice(id, 1);
     },
     incrementCount: function(id) {
-        if (typeof parseInt(id)!=="number" || id<0 || id>=this.data.length) return;
+        if (parseInt(id)<0 || parseInt(id)>=this.data.length) return;
         this.data[id].count++;
     }
 };
@@ -191,6 +191,4 @@ var catView = {
 
 /* ======= Initialize ======= */
 
-window.onload = function() {
-    octopus.init();
-};
+octopus.init();
