@@ -111,7 +111,7 @@ var model = {
         return len;
     },
     select: function(id) {
-        if (typeof parseInt(id)!=="number" || id<0 || id>=this.getLength()) return;
+        if (id<0 || id>=this.getLength()) return;
         let data = this.getItem(id);
         // delete data.key;
         // delete data.time;
@@ -120,7 +120,7 @@ var model = {
         return data;
     },
     update: function(data) {
-        if (typeof parseInt(data.id)!=="number" || data.id<0 || data.id>=this.getLength()) return;
+        if (data.id<0 || data.id>=this.getLength()) return;
         let hash = this.getItem(data.id);
         // TODO: check for key and key matches in entry
         this.fields.forEach(k=>{
@@ -130,7 +130,7 @@ var model = {
     },
     remove: function(id) {
         let len = this.getLength();
-        if (typeof parseInt(id)!=="number" || id<0 || id>=len || len<2) return;
+        if (id<0 || id>=len || len<2) return;
         // TODO: check for key and key matches in entry
         len--;
         for (let i=parseInt(id); i<len; i++) this.shiftItem(i);
@@ -138,8 +138,8 @@ var model = {
         this.setLength(len);
     },
     incrementCount: function(id) {
-        if (typeof parseInt(data.id)!=="number" || data.id<0 || data.id>=this.getLength()) return;
-        let hash = this.getItem(data.id);
+        if (id<0 || id>=this.getLength()) return;
+        let hash = this.getItem(id);
         // TODO: check if key is present in entry, no key is required to update the value but updating value while an update is pending is pointless
         hash.count++;
         this.setItem(id, hash);
@@ -292,7 +292,5 @@ var catView = {
 
 /* ======= Initialize ======= */
 
-window.onload = function() {
-    octopus.init();
-};
+octopus.init();
 
