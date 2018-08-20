@@ -27,44 +27,145 @@ var model = {
             count: 0
         }
     ],
+    prefix: "cat_",
+    keyLen: 10,
+    fields: [],
+
+    h2s: function(hash) {
+        return Object.keys(hash).reduce((a,k)=>{
+            a.push(k);
+            a.push(hash[k]);
+            return a;
+        }, []).join(",");
+    },
+    s2h: function(str) {
+        if (!str) return {};
+        let key;
+        return str.split(",").reduce((a,v)=>{
+            if (key) {
+                a[key] = v;
+                key = '';
+            } else key = v;
+            return a;
+        }, {});
+    },
+    getLength: function() {
+        return parseInt(localStorage.getItem(this.prefix + 'length'));
+    },
+    setLength: function(len) {
+        localStorage.setItem(this.prefix + 'length', len);
+    },
+    getItem: function(id) {
+        return this.s2h(localStorage.getItem(this.prefix + id));
+    },
+    setItem: function(id, data) {
+        localStorage.setItem(this.prefix + id, this.h2s(data));
+    },
+    removeItem: function(id) {
+        localStorage.removeItem(this.prefix + id);
+    },
+    shiftItem: function(id) {
+        localStorage.setItem(this.prefix + id, localStorage.getItem(this.prefix + (parseInt(id) + 1)));
+    },
+    // [0-9][A-Z:65-90][a-z:97-122]
+    // [62 = 10 + 26 + 26][35 = 90 - 48 - 7]
+    // [7 = 65 - 58][6 = 97 - 91]
+    // [55 = 48 + 7][61 = 48 + 7 + 6]
+    keyGen: function(len) {
+        let arr = new Array(len), c;
+        while(len--) {
+            c = Math.floor(Math.random() * 62);
+            arr[len] = c>9 ? String.fromCharCode(c>35 ? c+61 : c+55) : c;
+        }
+        return arr.join('');
+    },
+
+    init: function() {
+        this.fields = Object.keys(this.data[0]);
+        if (this.getLength()) return;
+        this.setLength(this.data.length);
+        this.data.forEach((h,i)=>{
+            // TODO: add key and time fields
+            this.setItem(i, h);
+        });
+    },
+
     list: function() {
-        return this.data.map((e,i)=>{ return {id: i, name: e.name}; });
+        let list=[], len=this.getLength();
+        for (let i=0; i<len; i++) {
+            list.push({id: i, name: this.getItem(i)['name']});
+        }
+        return list;
     },
     insert: function(data) {
         if (!data.name || !data.image) return null;
-        this.data.push(Object.keys(this.data[0]).reduce((a,e)=>{
-            a[e] = data[e]?data[e]:0;
+        let hash, len = this.getLength();
+        this.setLength(len + 1);
+        // TODO: if name run html entity scrub
+        hash = this.fields.reduce((a,e)=>{
+            a[e] = data[e] || 0;
             return a;
-        }, {}));
-        return this.data.length - 1;
+        }, {});
+        // TODO: add key and time fields
+        this.setItem(len, hash);
+        return len;
     },
     select: function(id) {
-        if (parseInt(id)<0 || parseInt(id)>=this.data.length) return;
-        let data = Object.create(this.data[id]);
-        data['fields'] = Object.keys(this.data[id]);
+        if (typeof parseInt(id)!=="number" || id<0 || id>=this.getLength()) return;
+        let data = this.getItem(id);
+        // delete data.key;
+        // delete data.time;
+        data['fields'] = this.fields.slice(0);
         data['id'] = id;
         return data;
     },
     update: function(data) {
-        if (parseInt(data.id)<0 || parseInt(data.id)>=this.data.length) return;
-        Object.keys(this.data[data.id]).forEach(e=>{ if (data[e]!==undefined) this.data[data.id][e]=data[e]; });
+        if (typeof parseInt(data.id)!=="number" || data.id<0 || data.id>=this.getLength()) return;
+        let hash = this.getItem(data.id);
+        // TODO: check for key and key matches in entry
+        this.fields.forEach(k=>{
+            if (data[k]!==undefined) hash[k] = data[k];
+        });
+        this.setItem(data.id, hash);
     },
     remove: function(id) {
-        if (parseInt(id)<0 || parseInt(id)>=this.data.length || this.data.length<2) return;
-        this.data.splice(id, 1);
+        let len = this.getLength();
+        if (typeof parseInt(id)!=="number" || id<0 || id>=len || len<2) return;
+        // TODO: check for key and key matches in entry
+        len--;
+        for (let i=parseInt(id); i<len; i++) this.shiftItem(i);
+        this.removeItem(len);
+        this.setLength(len);
     },
     incrementCount: function(id) {
-        if (parseInt(id)<0 || parseInt(id)>=this.data.length) return;
-        this.data[id].count++;
+        if (typeof parseInt(data.id)!=="number" || data.id<0 || data.id>=this.getLength()) return;
+        let hash = this.getItem(data.id);
+        // TODO: check if key is present in entry, no key is required to update the value but updating value while an update is pending is pointless
+        hash.count++;
+        this.setItem(id, hash);
+    },
+    getKey: function(id) {
+
+    },
+    //checkKey: function(id, key) {
+
+    //},
+    clearKey: function(id) {
+
     }
-};
+}
 
 /* ======= Controller ======= */
 var octopus = {
     init: function() {
+        model.init();
         let cat = model.select(0);
         catView.init(cat.fields);
         this.refresh(cat);
+    },
+    dump: function() {
+        localStorage.clear();
+        octopus.init();
     },
     refresh: function(data) {
         catView.catList(model.list());
@@ -168,7 +269,7 @@ var catView = {
         });
 
         document.getElementById('btn-dump').addEventListener('click', ()=>{
-            model.data.forEach((e,i)=>Object.keys(model.data[0]).forEach(p=>console.log(i+'-'+p+':'+e[p])));
+            octopus.dump();
         });
     },
     adminView: function(data) {
@@ -191,4 +292,7 @@ var catView = {
 
 /* ======= Initialize ======= */
 
-octopus.init();
+window.onload = function() {
+    octopus.init();
+};
+
