@@ -29,6 +29,7 @@ var model = {
     ],
     prefix: "cat_",
     keyLen: 10,
+    keyExpire: 2 * 60 * 1000,// 2 minutes
     fields: [],
 
     h2s: function(hash) {
@@ -85,7 +86,8 @@ var model = {
         if (this.getLength()) return;
         this.setLength(this.data.length);
         this.data.forEach((h,i)=>{
-            // TODO: add key and time fields
+            h.key = '';
+            h.keyTime = '';
             this.setItem(i, h);
         });
     },
@@ -99,6 +101,7 @@ var model = {
     },
     insert: function(data) {
         if (!data.name || !data.image) return null;
+        this.clearKey(data.id, data.key);
         let hash, len = this.getLength();
         this.setLength(len + 1);
         // TODO: if name run html entity scrub
@@ -106,23 +109,25 @@ var model = {
             a[e] = data[e] || 0;
             return a;
         }, {});
-        // TODO: add key and time fields
+        hash.key = '';
+        hash.keyTime = '';
         this.setItem(len, hash);
         return len;
     },
     select: function(id) {
         if (id<0 || id>=this.getLength()) return;
         let data = this.getItem(id);
-        // delete data.key;
-        // delete data.time;
+        delete data.key;
+        delete data.keyTime;
         data['fields'] = this.fields.slice(0);
         data['id'] = id;
         return data;
     },
     update: function(data) {
         if (data.id<0 || data.id>=this.getLength()) return;
+        if (!this.checkKey(data.id, data.key)) return;
+        this.clearKey(data.id, data.key);
         let hash = this.getItem(data.id);
-        // TODO: check for key and key matches in entry
         this.fields.forEach(k=>{
             if (data[k]!==undefined) hash[k] = data[k];
         });
@@ -131,7 +136,7 @@ var model = {
     remove: function(id) {
         let len = this.getLength();
         if (id<0 || id>=len || len<2) return;
-        // TODO: check for key and key matches in entry
+        if (!this.checkKey(data.id, data.key)) return;
         len--;
         for (let i=parseInt(id); i<len; i++) this.shiftItem(i);
         this.removeItem(len);
@@ -140,18 +145,29 @@ var model = {
     incrementCount: function(id) {
         if (id<0 || id>=this.getLength()) return;
         let hash = this.getItem(id);
-        // TODO: check if key is present in entry, no key is required to update the value but updating value while an update is pending is pointless
         hash.count++;
         this.setItem(id, hash);
     },
+
     getKey: function(id) {
-
+        let hash = this.getItem(id);
+        if (hash.key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return false;
+        hash.key = this.keyGen(this.keyLen);
+        hash.keyTime = Date.now();
+        this.setItem(id, hash);
+        return hash.key;
     },
-    //checkKey: function(id, key) {
-
-    //},
-    clearKey: function(id) {
-
+    checkKey: function(id, key) {
+        let hash = this.getItem(id);
+        if (hash.key===key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return true;
+        return false;
+    },
+    clearKey: function(id, key) {
+        let hash = this.getItem(id);
+        if (hash.key!==key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return;
+        hash.key = '';
+        hash.keyTime = '';
+        this.setItem(id, hash);
     }
 }
 
@@ -164,6 +180,8 @@ var octopus = {
         this.refresh(cat);
     },
     dump: function() {
+        let data = catView.adminState();
+        if (data.showAdmin) this.toggleAdmin();
         localStorage.clear();
         octopus.init();
     },
@@ -173,6 +191,8 @@ var octopus = {
         catView.adminView(data);
     },
     catClick: function(id) {
+        let data = catView.adminState();
+        if (data.showAdmin) this.toggleAdmin();
         this.refresh(model.select(id));
     },
     incrementCounter: function(id) {
@@ -180,7 +200,13 @@ var octopus = {
         this.refresh(model.select(id));
     },
     toggleAdmin: function() {
-        catView.toggleAdmin();
+        let data = catView.adminState(), key;
+        if (data.showAdmin) {
+            model.clearKey(data.id, data.key);
+            catView.toggleAdmin();
+        } else if (key = model.getKey(data.id)) {
+            catView.toggleAdmin(key);
+        }
     },
     updateCat: function(data) {
         catView.toggleAdmin();
@@ -203,12 +229,21 @@ var octopus = {
 /* ======= View ======= */
 var catView = {
     showAdmin: false,
+    timeout: model.keyExpire,
     pages: {},
 
     init: function(fields) {
         this.catListInit();
         this.catViewInit(fields);
         this.adminViewInit(fields);
+    },
+
+    adminState: function() {
+        return {
+            id: this.pages.adminView.id.value,
+            key: this.pages.adminView.key.value,
+            showAdmin: this.showAdmin
+        };
     },
 
     // List View
@@ -243,18 +278,19 @@ var catView = {
         this.pages.adminView = {};
         this.pages.adminView.form = document.getElementById('adminForm');
         this.pages.adminView.id = form.elements['form-id'];
+        this.pages.adminView.key = form.elements['form-key'];
         fields.forEach(p=>this.pages.adminView[p] = form.elements['form-' + p]);
 
         document.getElementById('btn-admin').addEventListener('click', ()=>{
             octopus.toggleAdmin();
         });
         document.getElementById('btn-new').addEventListener('click', ()=>{
-            let cat = {};
+            let cat = { id: this.pages.adminView.id.value, key: this.pages.adminView.key.value };
             fields.forEach(p=>cat[p] = this.pages.adminView[p].value);
             octopus.newCat(cat);
         });
         document.getElementById('btn-save').addEventListener('click', ()=>{
-            let cat = { id: this.pages.adminView.id.value };
+            let cat = { id: this.pages.adminView.id.value, key: this.pages.adminView.key.value };
             fields.forEach(p=>{
                 if (this.pages.adminView[p].value !=='') cat[p] = this.pages.adminView[p].value;
             });
@@ -279,18 +315,24 @@ var catView = {
             this.pages.adminView[p].placeholder = data[p];
         });
     },
-    toggleAdmin: function() {
+    toggleAdmin: function(key) {
         if (this.showAdmin) {
             this.showAdmin = false;
             this.pages.adminView.form.classList.add('closed');
+            this.pages.adminView.key.value = '';
+            clearTimeout(this.toid);
         } else {
             this.showAdmin = true;
             this.pages.adminView.form.classList.remove('closed');
+            this.pages.adminView.key.value = key;
+            this.toid = setTimeout(octopus.toggleAdmin, catView.timeout);
         }
     }
 };
 
 /* ======= Initialize ======= */
 
-octopus.init();
+window.onload = function() {
+    octopus.init();
+};
 
