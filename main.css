@@ -139,7 +139,7 @@ fieldset {
     border-radius: 5px;
     width: 65px;
 }
-form button {
+#form button {
     cursor: pointer;
 
     border: 1px solid;
@@ -151,12 +151,12 @@ form button {
     text-align: left;
     font-weight: bold;
 }
-form button:hover {
+#form button:hover {
     //border-style: outset;
     //background-color: #CCCCCC;
     background: radial-gradient(White, #AAAAAA);
 }
-form button:active {
+#form button:active {
     //border-style: inset;
     background: radial-gradient(#DDDDDD, #DDDDDD);
 }

@@ -345,9 +345,9 @@ var view = {
     formInit: function(fields) {
         this.links.form = {};
         this.links.form.form = document.getElementById("form");
-        this.links.form.id = this.links.form.form.elements["form-id"];
-        this.links.form.key = this.links.form.form.elements["form-key"];
-        fields.forEach(f=>this.links.form[f] = this.links.form.form.elements["form-" + f]);
+        this.links.form.id = document.getElementsByName("form-id")[0];
+        this.links.form.key = document.getElementsByName("form-key")[0];
+        fields.forEach(f=>this.links.form[f] = document.getElementsByName("form-" + f)[0]);
 
         document.getElementById("edit").addEventListener('click', controller.toggle);
         document.getElementById("btn-new").addEventListener('click', ()=>{
