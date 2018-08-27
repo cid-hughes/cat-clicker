@@ -343,11 +343,11 @@ var view = {
 
     // Form
     formInit: function(fields) {
-        this.links.form = {};
-        this.links.form.form = document.getElementById("form");
-        this.links.form.id = document.getElementsByName("form-id")[0];
-        this.links.form.key = document.getElementsByName("form-key")[0];
-        fields.forEach(f=>this.links.form[f] = document.getElementsByName("form-" + f)[0]);
+        this.links.form = {
+            id: document.getElementById("form-id"),
+            key: document.getElementById("form-key")
+        };
+        fields.forEach(f=>this.links.form[f] = document.getElementById("form-" + f));
 
         document.getElementById("edit").addEventListener('click', controller.toggle);
         document.getElementById("btn-new").addEventListener('click', ()=>{
