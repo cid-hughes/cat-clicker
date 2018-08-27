@@ -1,4 +1,3 @@
-/* ======= Model ======= */
 var model = {
     data: [
         {
@@ -27,47 +26,10 @@ var model = {
             count: 0
         }
     ],
-    prefix: "cat_",
-    keyLen: 10,
-    keyExpire: 2 * 60 * 1000,// 2 minutes
     fields: [],
+    keyLen: 10,
+    keyExpire: 1 * 60 * 1000,//1 minute
 
-    h2s: function(hash) {
-        return Object.keys(hash).reduce((a,k)=>{
-            a.push(k);
-            a.push(hash[k]);
-            return a;
-        }, []).join(",");
-    },
-    s2h: function(str) {
-        if (!str) return {};
-        let key;
-        return str.split(",").reduce((a,v)=>{
-            if (key) {
-                a[key] = v;
-                key = '';
-            } else key = v;
-            return a;
-        }, {});
-    },
-    getLength: function() {
-        return parseInt(localStorage.getItem(this.prefix + 'length'));
-    },
-    setLength: function(len) {
-        localStorage.setItem(this.prefix + 'length', len);
-    },
-    getItem: function(id) {
-        return this.s2h(localStorage.getItem(this.prefix + id));
-    },
-    setItem: function(id, data) {
-        localStorage.setItem(this.prefix + id, this.h2s(data));
-    },
-    removeItem: function(id) {
-        localStorage.removeItem(this.prefix + id);
-    },
-    shiftItem: function(id) {
-        localStorage.setItem(this.prefix + id, localStorage.getItem(this.prefix + (parseInt(id) + 1)));
-    },
     // [0-9][A-Z:65-90][a-z:97-122]
     // [62 = 10 + 26 + 26][35 = 90 - 48 - 7]
     // [7 = 65 - 58][6 = 97 - 91]
@@ -80,259 +42,341 @@ var model = {
         }
         return arr.join('');
     },
+    scrub: function(str) {
+        let div = document.createElement("div");
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+//        return str.replace(/[&<>'"/g, c=>({
+//            "&": "&amp;",
+//            "<": "&lt;",
+//            ">": "&gt;",
+//            "'": "&apos;",
+//            '"': "&quot;"
+//        })[c]);
+    },
 
     init: function() {
+        //localStorage.clear();// Temporary!
+        console.log("controller.init() ran!");
+
         this.fields = Object.keys(this.data[0]);
-        if (this.getLength()) return;
-        this.setLength(this.data.length);
+        if (parseInt(localStorage.getItem("cat_length"))) return;
+        if (localStorage.getItem(0).substr(0, 1)=="{") return;
+        localStorage.setItem("cat_length", this.data.length);
         this.data.forEach((h,i)=>{
             h.key = '';
             h.keyTime = '';
-            this.setItem(i, h);
+            localStorage.setItem("cat_" + i, JSON.stringify(h));
         });
     },
 
     list: function() {
-        let list=[], len=this.getLength();
-        for (let i=0; i<len; i++) {
-            list.push({id: i, name: this.getItem(i)['name']});
-        }
+        let list = [], len = parseInt(localStorage.getItem("cat_length"));
+        for (let i=0; i<len; i++)
+            list.push({id: i, name: JSON.parse(localStorage.getItem("cat_" + i))['name']});
         return list;
     },
     insert: function(data) {
-        if (!data.name || !data.image) return null;
+        let msg;
         this.clearKey(data.id, data.key);
-        let hash, len = this.getLength();
-        this.setLength(len + 1);
-        // TODO: if name run html entity scrub
-        hash = this.fields.reduce((a,e)=>{
-            a[e] = data[e] || 0;
+        if (!data.name || !data.image) {
+            msg = "Unable to create new cat. Please fill in Name and Image!";
+            console.log(msg);
+            return msg;
+        }
+        let hash, len = parseInt(localStorage.getItem("cat_length"));
+        localStorage.setItem("cat_length", len + 1);
+        hash = this.fields.reduce((a,f)=>{
+            a[f] = data[f] || 0;// removed scrub
             return a;
         }, {});
-        hash.key = '';
-        hash.keyTime = '';
-        this.setItem(len, hash);
+        hash.key = "";
+        hash.keyTime = "";
+        localStorage.setItem("cat_" + len, JSON.stringify(hash));
         return len;
     },
     select: function(id) {
-        if (id<0 || id>=this.getLength()) return;
-        let data = this.getItem(id);
-        delete data.key;
-        delete data.keyTime;
-        data['fields'] = this.fields.slice(0);
-        data['id'] = id;
-        return data;
+        let msg;
+        if (id<0 || id>=parseInt(localStorage.getItem("cat_length"))) {
+            msg = "Cat ID out of range!";
+            console.log(msg);
+            return msg;
+        }
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
+        delete hash.key;
+        delete hash.keyTime;
+        hash['fields'] = this.fields.slice(0);
+        hash['id'] = id;
+        return hash;
     },
     update: function(data) {
-        if (data.id<0 || data.id>=this.getLength()) return;
-        if (!this.checkKey(data.id, data.key)) return;
+        let msg;
+        if (!this.checkKey(data.id, data.key)) {
+            msg = "Unable to update cat! Invalid key submitted.";
+            console.log(msg);
+            return msg;
+        }
         this.clearKey(data.id, data.key);
-        let hash = this.getItem(data.id);
-        this.fields.forEach(k=>{
-            if (data[k]!==undefined) hash[k] = data[k];
+        if (data.id<0 || data.id>=parseInt(localStorage.getItem("cat_length"))) {
+            msg = "Unable to update cat! Cat ID out of range.";
+            console.log(msg);
+            return msg;
+        }
+        let hash = JSON.parse(localStorage.getItem("cat_" + data.id));
+        this.fields.forEach(f=>{
+            if (data[f]!==undefined) hash[f] = data[f];// removed scrub
         });
-        this.setItem(data.id, hash);
+        localStorage.setItem("cat_" + data.id, JSON.stringify(hash));
     },
-    remove: function(id) {
-        let len = this.getLength();
-        if (id<0 || id>=len || len<2) return;
-        if (!this.checkKey(data.id, data.key)) return;
+    remove: function(data) {
+        let msg;
+        if (!this.checkKey(data.id, data.key)) {
+            msg = "Unable to remove cat! Invalid key submitted.";
+            console.log(msg);
+            return msg;
+        }
+        this.clearKey(data.id, data.key);
+        let len = parseInt(localStorage.getItem("cat_length"));
+        if (data.id<0 || data.id>= len || len<2) {
+            msg = "Unable to remove cat! Cat ID is out of range or there are not enough cats.";
+            console.log(msg);
+            return msg;
+        }
         len--;
-        for (let i=parseInt(id); i<len; i++) this.shiftItem(i);
-        this.removeItem(len);
-        this.setLength(len);
+        for (let i=parseInt(data.id); i<len; i++)
+            localStorage.setItem("cat_" + i, localStorage.getItem("cat_" + (i + 1)));
+        localStorage.removeItem("cat_" + len);
+        localStorage.setItem("cat_length", len);
     },
     incrementCount: function(id) {
-        if (id<0 || id>=this.getLength()) return;
-        let hash = this.getItem(id);
+        let msg;
+        if (id<0 || id>=parseInt(localStorage.getItem("cat_length"))) {
+            msg = "Unable to click cat! Cat ID out of range.";
+            console.log(msg);
+            return msg;
+        }
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
         hash.count++;
-        this.setItem(id, hash);
+        localStorage.setItem("cat_" + id, JSON.stringify(hash));
     },
 
     getKey: function(id) {
-        let hash = this.getItem(id);
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
         if (hash.key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return false;
         hash.key = this.keyGen(this.keyLen);
         hash.keyTime = Date.now();
-        this.setItem(id, hash);
+        localStorage.setItem("cat_" + id, JSON.stringify(hash));
         return hash.key;
     },
     checkKey: function(id, key) {
-        let hash = this.getItem(id);
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
         if (hash.key===key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return true;
         return false;
     },
     clearKey: function(id, key) {
-        let hash = this.getItem(id);
-        if (hash.key!==key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return;
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
+        if (hash === null || (hash.key!==key && parseInt(hash.keyTime)) + this.keyExpire > Date.now()) return;
         hash.key = '';
         hash.keyTime = '';
-        this.setItem(id, hash);
+        localStorage.setItem("cat_" + id, JSON.stringify(hash));
     }
-}
-
-/* ======= Controller ======= */
-var octopus = {
+};
+var controller = {
     init: function() {
         model.init();
-        let cat = model.select(0);
-        catView.init(cat.fields);
-        this.refresh(cat);
+        let data = model.select(0);
+        view.init(data.fields);
+        this.refresh(0);
     },
-    dump: function() {
-        let data = catView.adminState();
-        if (data.showAdmin) this.toggleAdmin();
-        localStorage.clear();
-        octopus.init();
+    reset: function() {
+        let data = view.formState();
+        if (data.showForm) controller.toggle();// wtf
+        localStorage.clear()
+        controller.init();
     },
-    refresh: function(data) {
-        catView.catList(model.list());
-        catView.catView(data);
-        catView.adminView(data);
+
+    refresh: function(id) {
+        let data = model.select(id);
+        if (typeof data == "string") return view.messageView(data);
+        else {
+            view.view(data);
+            view.formView(data);
+        }
+        view.listView(model.list());
     },
-    catClick: function(id) {
-        let data = catView.adminState();
-        if (data.showAdmin) this.toggleAdmin();
-        this.refresh(model.select(id));
-    },
-    incrementCounter: function(id) {
-        model.incrementCount(id);
-        this.refresh(model.select(id));
-    },
-    toggleAdmin: function() {
-        let data = catView.adminState(), key;
-        if (data.showAdmin) {
+
+    toggle: function() {
+        let data = view.formState(), key;
+        if (data.showForm) {
             model.clearKey(data.id, data.key);
-            catView.toggleAdmin();
+            view.toggle();
         } else if (key = model.getKey(data.id)) {
-            catView.toggleAdmin(key);
+            view.toggle(key);
+        } else {
+            view.messageView("Failed to generate a key! Another user may be updating this cat.");
         }
     },
-    updateCat: function(data) {
-        catView.toggleAdmin();
-        model.update(data);
-        this.refresh(model.select(data.id));
+    click: function(id) {
+        let data = view.formState();
+        if (data.showForm) this.toggle();
+        this.refresh(id);
     },
-    newCat: function(data) {
-        catView.toggleAdmin();
-        let id = model.insert(data);
-        if (id === null) return;
-        this.refresh(model.select(id));
+    incrementCounter(id) {
+        let res = model.incrementCount(id);
+        if (res) view.messageView(res);
+        this.refresh(id);
     },
-    removeCat: function(id) {
-        catView.toggleAdmin();
-        model.remove(id);
-        this.refresh(model.select(0));
+    create: function(data) {
+        let res = model.insert(data);
+        this.toggle();
+        if (typeof res == "string") {
+            view.messageView(res);
+            res = data.id;
+        }
+        this.refresh(res);
+    },
+    update: function(data) {
+        let res = model.update(data);
+        this.toggle();
+        if (typeof res == "string") view.messageView(res);
+        this.refresh(data.id);
+    },
+    remove: function(data) {
+        let res = model.remove(data);
+        this.toggle();
+        if (typeof res == "string") view.messageView(res);
+        this.refresh(0);
     }
 };
-
-/* ======= View ======= */
-var catView = {
-    showAdmin: false,
-    timeout: model.keyExpire,
-    pages: {},
+var view = {
+    showForm: false,
+    links: {},
+    formTimeout: model.keyExpire,
+    msgTimeout: 10 * 1000,// 10 seconds
+    timer: {
+        'tgl': 0,
+        'msg': 0
+    },
 
     init: function(fields) {
-        this.catListInit();
-        this.catViewInit(fields);
-        this.adminViewInit(fields);
+        this.messageInit();
+        this.listInit();
+        this.viewInit(fields);
+        this.formInit(fields);
     },
 
-    adminState: function() {
+    // Misc
+    formState: function() {
         return {
-            id: this.pages.adminView.id.value,
-            key: this.pages.adminView.key.value,
-            showAdmin: this.showAdmin
+            id: this.links.form.id.value,
+            key: this.links.form.key.value,
+            showForm: this.showForm
         };
     },
-
-    // List View
-    catListInit: function() {
-        this.pages.catList = document.getElementById('catList');
+    unscrub: function(str) {
+        let div = document.createElement('div');
+        div.innerHTML = str;
+        let child = div.childNodes[0];
+        return child ? child.nodeValue : '';
     },
-    catList: function(data) {
-        this.pages.catList.innerHTML = '';
-        data.forEach(e=>{
+    toggle: function(key) {
+        if (this.showForm) {
+            this.showForm = false;
+            clearTimeout(this.timer.tgl);
+            this.links.form.key.value = "";
+            document.getElementById('left').style.width = "0px";
+        } else {
+            this.showForm = true;
+            this.links.form.key.value = key;
+            document.getElementById('left').style.width = "290px";
+            this.timer.tgl = setTimeout(controller.toggle, view.formTimeout);
+        }
+    },
+
+    // Messages
+    messageInit: function() {
+        this.links.msg = document.getElementById("msg");
+    },
+    messageView: function(str) {
+        this.messageClear();
+        this.links.msg.appendChild(document.createTextNode(str));
+        this.timer.msg = setTimeout(view.messageClear, this.msgTimeout);
+    },
+    messageClear: function() {
+        if (!view.timer.msg) return;
+        clearTimeout(view.timer.msg);
+        view.timer.msg = 0;
+        view.links.msg.innerHTML = '';
+    },
+
+    // List
+    listInit: function() {
+        this.links.list = document.getElementById("menu");
+    },
+    listView: function(data) {
+        this.links.list.innerHTML = '';
+        data.forEach(el=>{
             let li = document.createElement('li');
-            li.textContent = e.name;
-            li.addEventListener('click', ()=>octopus.catClick(e.id));
-            this.pages.catList.appendChild(li);
+            li.appendChild(document.createTextNode(el.name));// removed unscrub
+            li.addEventListener('click', ev=>{
+                ev = ev || window.event;
+                let target = ev.target || ev.srcElement, last = document.getElementsByClassName("selected");
+                if (last.length) last[0].classList.remove("selected");
+                target.classList.add("selected");
+                controller.click(el.id);
+            });
+            if (this.links.form.id.value == el.id) li.classList.add("selected");
+            this.links.list.appendChild(li);
         });
     },
 
-    // Cat View
-    catViewInit: function(fields) {
-        this.pages.catView = {};
-        fields.forEach(p=>this.pages.catView[p] = document.getElementById('card-' + p));
-        this.pages.catView.image.addEventListener('click', ()=>octopus.incrementCounter(
-            document.getElementById('updateForm').elements['form-id'].value
+    // View
+    viewInit: function(fields) {
+        this.links.view = {};
+        fields.forEach(f=>this.links.view[f] = document.getElementById("view-" + f));
+        this.links.view.image.addEventListener('click', ()=>controller.incrementCounter(
+            document.getElementById("form").elements["form-id"].value
         ));
     },
-    catView: function(data) {
-        data.fields.forEach(p=>this.pages.catView[p][ p=='image'?'src':'textContent' ] = data[p]);
+    view: function(data) {// May come back and change this to use text nodes
+        data.fields.forEach(f=>this.links.view[f][ f=='image'?'src':'textContent' ] = data[f]);// removed unscrub
     },
 
-    // Admin View
-    adminViewInit: function(fields) {
-        let form = document.getElementById('updateForm');
-        this.pages.adminView = {};
-        this.pages.adminView.form = document.getElementById('adminForm');
-        this.pages.adminView.id = form.elements['form-id'];
-        this.pages.adminView.key = form.elements['form-key'];
-        fields.forEach(p=>this.pages.adminView[p] = form.elements['form-' + p]);
+    // Form
+    formInit: function(fields) {
+        this.links.form = {};
+        this.links.form.form = document.getElementById("form");
+        this.links.form.id = this.links.form.form.elements["form-id"];
+        this.links.form.key = this.links.form.form.elements["form-key"];
+        fields.forEach(f=>this.links.form[f] = this.links.form.form.elements["form-" + f]);
 
-        document.getElementById('btn-admin').addEventListener('click', ()=>{
-            octopus.toggleAdmin();
+        document.getElementById("edit").addEventListener('click', controller.toggle);
+        document.getElementById("btn-new").addEventListener('click', ()=>{
+            let data = { id: this.links.form.id.value, key: this.links.form.key.value };
+            fields.forEach(f=>data[f] = this.links.form[f].value);
+            controller.create(data);
         });
-        document.getElementById('btn-new').addEventListener('click', ()=>{
-            let cat = { id: this.pages.adminView.id.value, key: this.pages.adminView.key.value };
-            fields.forEach(p=>cat[p] = this.pages.adminView[p].value);
-            octopus.newCat(cat);
-        });
-        document.getElementById('btn-save').addEventListener('click', ()=>{
-            let cat = { id: this.pages.adminView.id.value, key: this.pages.adminView.key.value };
-            fields.forEach(p=>{
-                if (this.pages.adminView[p].value !=='') cat[p] = this.pages.adminView[p].value;
+        document.getElementById("btn-save").addEventListener('click', ()=>{
+            let data = { id: this.links.form.id.value, key: this.links.form.key.value };
+            fields.forEach(f=>{
+                if (this.links.form[f].value !== "") data[f] = this.links.form[f].value;
             });
-            octopus.updateCat(cat);
+            controller.update(data);
         });
-        document.getElementById('btn-cancel').addEventListener('click', ()=>{
-            fields.forEach(p=>this.pages.adminView[p].value = '');
-            this.toggleAdmin();
+        document.getElementById("btn-cancel").addEventListener('click', ()=>{
+            fields.forEach(f=>this.links.form[f].value = "");
+            controller.toggle();
         });
-        document.getElementById('btn-delete').addEventListener('click', ()=>{
-            octopus.removeCat(this.pages.adminView.id.value);
+        document.getElementById("btn-delete").addEventListener('click', ()=>{
+            controller.remove({ id: this.links.form.id.value, key: this.links.form.key.value });
         });
-
-        document.getElementById('btn-dump').addEventListener('click', ()=>{
-            octopus.dump();
-        });
+        document.getElementById("btn-reset").addEventListener('click', controller.reset);
     },
-    adminView: function(data) {
-        this.pages.adminView.id.value = data.id;
-        data.fields.forEach(p=>{
-            this.pages.adminView[p].value = '';
-            this.pages.adminView[p].placeholder = data[p];
+    formView: function(data) {
+        this.links.form.id.value = data.id;
+        data.fields.forEach(f=>{
+            this.links.form[f].value = "";
+            this.links.form[f].placeholder = data[f];// removed unscrub
         });
-    },
-    toggleAdmin: function(key) {
-        if (this.showAdmin) {
-            this.showAdmin = false;
-            this.pages.adminView.form.classList.add('closed');
-            this.pages.adminView.key.value = '';
-            clearTimeout(this.toid);
-        } else {
-            this.showAdmin = true;
-            this.pages.adminView.form.classList.remove('closed');
-            this.pages.adminView.key.value = key;
-            this.toid = setTimeout(octopus.toggleAdmin, catView.timeout);
-        }
     }
 };
-
-/* ======= Initialize ======= */
-
-window.onload = function() {
-    octopus.init();
-};
-
