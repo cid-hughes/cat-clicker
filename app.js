@@ -60,8 +60,7 @@ var model = {
         console.log("controller.init() ran!");
 
         this.fields = Object.keys(this.data[0]);
-        if (parseInt(localStorage.getItem("cat_length"))) return;
-        if (localStorage.getItem(0).substr(0, 1)=="{") return;
+        if (parseInt(localStorage.getItem("cat_length")) && localStorage.getItem("cat_0").substr(0, 1)=="{") return;
         localStorage.setItem("cat_length", this.data.length);
         this.data.forEach((h,i)=>{
             h.key = '';
