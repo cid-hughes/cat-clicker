@@ -334,7 +334,7 @@ var view = {
         this.links.view = {};
         fields.forEach(f=>this.links.view[f] = document.getElementById("view-" + f));
         this.links.view.image.addEventListener('click', ()=>controller.incrementCounter(
-            document.getElementById("form").elements["form-id"].value
+            document.getElementById("form-id").value
         ));
     },
     view: function(data) {// May come back and change this to use text nodes
