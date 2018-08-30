@@ -292,11 +292,17 @@ var view = {
             this.showForm = false;
             clearTimeout(this.timer.tgl);
             this.links.form.key.value = "";
-            document.getElementById("left").style.width = "0px";
+            document.getElementById("left").style.zIndex = "0";
+            document.getElementById("left").style.opacity = "0";
+            document.getElementById("right").style.zIndex = "1";
+            document.getElementById("right").style.opacity = "1";
         } else {
             this.showForm = true;
             this.links.form.key.value = key;
-            document.getElementById("left").style.width = "290px";
+            document.getElementById("left").style.zIndex = "1";
+            document.getElementById("left").style.opacity = "1";
+            document.getElementById("right").style.zIndex = "0";
+            document.getElementById("right").style.opacity = "0.2";
             this.timer.tgl = setTimeout(controller.toggle, view.formTimeout);
         }
     },

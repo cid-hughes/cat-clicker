@@ -9,7 +9,18 @@
 
 window.onload = function() {
     controller.init();
+
+/*
+    let hdr = document.getElementById("page_header");
+    let deg = 0;
+    let tick = () => {
+        hdr.style.background = `background linear-gradient(${deg++}deg, #e484be, #83a2b1)`;
+        requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+*/
 }
+
   </script>
  </head>
  <body>
@@ -48,7 +59,7 @@ window.onload = function() {
       </fieldset>
      </div>
     </div>
-    <article>
+    <article id="right">
      <img id="view-image" src="images/benjamin.jpg" alt="">
      <div id="view-count"></div>
     </article>
