@@ -24,6 +24,16 @@ var model = {
             name: "Tom",
             image: "images/tom.jpg",
             count: 0
+        },
+        {
+            name: "Ajax",
+            image: "images/ajax.jpg",
+            count: 0
+        },
+        {
+            name: "Archimedes",
+            image: "images/archimedes.jpg",
+            count: 0
         }
     ],
     fields: [],
@@ -40,7 +50,7 @@ var model = {
             c = Math.floor(Math.random() * 62);
             arr[len] = c>9 ? String.fromCharCode(c>35 ? c+61 : c+55) : c;
         }
-        return arr.join('');
+        return arr.join("");
     },
     scrub: function(str) {
         let div = document.createElement("div");
@@ -57,14 +67,13 @@ var model = {
 
     init: function() {
         //localStorage.clear();// Temporary!
-        console.log("controller.init() ran!");
 
         this.fields = Object.keys(this.data[0]);
         if (parseInt(localStorage.getItem("cat_length")) && localStorage.getItem("cat_0").substr(0, 1)=="{") return;
         localStorage.setItem("cat_length", this.data.length);
         this.data.forEach((h,i)=>{
-            h.key = '';
-            h.keyTime = '';
+            h.key = "";
+            h.keyTime = "";
             localStorage.setItem("cat_" + i, JSON.stringify(h));
         });
     },
@@ -72,7 +81,7 @@ var model = {
     list: function() {
         let list = [], len = parseInt(localStorage.getItem("cat_length"));
         for (let i=0; i<len; i++)
-            list.push({id: i, name: JSON.parse(localStorage.getItem("cat_" + i))['name']});
+            list.push({id: i, name: JSON.parse(localStorage.getItem("cat_" + i))["name"]});
         return list;
     },
     insert: function(data) {
@@ -104,8 +113,8 @@ var model = {
         let hash = JSON.parse(localStorage.getItem("cat_" + id));
         delete hash.key;
         delete hash.keyTime;
-        hash['fields'] = this.fields.slice(0);
-        hash['id'] = id;
+        hash["fields"] = this.fields.slice(0);
+        hash["id"] = id;
         return hash;
     },
     update: function(data) {
@@ -175,8 +184,8 @@ var model = {
     clearKey: function(id, key) {
         let hash = JSON.parse(localStorage.getItem("cat_" + id));
         if (hash === null || (hash.key!==key && parseInt(hash.keyTime)) + this.keyExpire > Date.now()) return;
-        hash.key = '';
-        hash.keyTime = '';
+        hash.key = "";
+        hash.keyTime = "";
         localStorage.setItem("cat_" + id, JSON.stringify(hash));
     }
 };
@@ -189,7 +198,7 @@ var controller = {
     },
     reset: function() {
         let data = view.formState();
-        if (data.showForm) controller.toggle();// wtf
+        if (data.showForm) controller.toggle();
         localStorage.clear()
         controller.init();
     },
@@ -253,8 +262,8 @@ var view = {
     formTimeout: model.keyExpire,
     msgTimeout: 10 * 1000,// 10 seconds
     timer: {
-        'tgl': 0,
-        'msg': 0
+        "tgl": 0,
+        "msg": 0
     },
 
     init: function(fields) {
@@ -273,21 +282,21 @@ var view = {
         };
     },
     unscrub: function(str) {
-        let div = document.createElement('div');
+        let div = document.createElement("div");
         div.innerHTML = str;
         let child = div.childNodes[0];
-        return child ? child.nodeValue : '';
+        return child ? child.nodeValue : "";
     },
     toggle: function(key) {
         if (this.showForm) {
             this.showForm = false;
             clearTimeout(this.timer.tgl);
             this.links.form.key.value = "";
-            document.getElementById('left').style.width = "0px";
+            document.getElementById("left").style.width = "0px";
         } else {
             this.showForm = true;
             this.links.form.key.value = key;
-            document.getElementById('left').style.width = "290px";
+            document.getElementById("left").style.width = "290px";
             this.timer.tgl = setTimeout(controller.toggle, view.formTimeout);
         }
     },
@@ -305,7 +314,7 @@ var view = {
         if (!view.timer.msg) return;
         clearTimeout(view.timer.msg);
         view.timer.msg = 0;
-        view.links.msg.innerHTML = '';
+        view.links.msg.innerHTML = "";
     },
 
     // List
@@ -313,11 +322,11 @@ var view = {
         this.links.list = document.getElementById("menu");
     },
     listView: function(data) {
-        this.links.list.innerHTML = '';
-        data.forEach(el=>{
-            let li = document.createElement('li');
+        this.links.list.innerHTML = "";
+        data.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0).forEach(el=>{
+            let li = document.createElement("li");
             li.appendChild(document.createTextNode(el.name));// removed unscrub
-            li.addEventListener('click', ev=>{
+            li.addEventListener("click", ev=>{
                 ev = ev || window.event;
                 let target = ev.target || ev.srcElement, last = document.getElementsByClassName("selected");
                 if (last.length) last[0].classList.remove("selected");
@@ -333,12 +342,12 @@ var view = {
     viewInit: function(fields) {
         this.links.view = {};
         fields.forEach(f=>this.links.view[f] = document.getElementById("view-" + f));
-        this.links.view.image.addEventListener('click', ()=>controller.incrementCounter(
+        this.links.view.image.addEventListener("click", ()=>controller.incrementCounter(
             document.getElementById("form-id").value
         ));
     },
     view: function(data) {// May come back and change this to use text nodes
-        data.fields.forEach(f=>this.links.view[f][ f=='image'?'src':'textContent' ] = data[f]);// removed unscrub
+        data.fields.forEach(f=>this.links.view[f][ f=="image"?"src":"textContent" ] = data[f]);// removed unscrub
     },
 
     // Form
@@ -349,27 +358,27 @@ var view = {
         };
         fields.forEach(f=>this.links.form[f] = document.getElementById("form-" + f));
 
-        document.getElementById("edit").addEventListener('click', controller.toggle);
-        document.getElementById("btn-new").addEventListener('click', ()=>{
+        document.getElementById("edit").addEventListener("click", controller.toggle);
+        document.getElementById("btn-new").addEventListener("click", ()=>{
             let data = { id: this.links.form.id.value, key: this.links.form.key.value };
             fields.forEach(f=>data[f] = this.links.form[f].value);
             controller.create(data);
         });
-        document.getElementById("btn-save").addEventListener('click', ()=>{
+        document.getElementById("btn-save").addEventListener("click", ()=>{
             let data = { id: this.links.form.id.value, key: this.links.form.key.value };
             fields.forEach(f=>{
                 if (this.links.form[f].value !== "") data[f] = this.links.form[f].value;
             });
             controller.update(data);
         });
-        document.getElementById("btn-cancel").addEventListener('click', ()=>{
+        document.getElementById("btn-cancel").addEventListener("click", ()=>{
             fields.forEach(f=>this.links.form[f].value = "");
             controller.toggle();
         });
-        document.getElementById("btn-delete").addEventListener('click', ()=>{
+        document.getElementById("btn-delete").addEventListener("click", ()=>{
             controller.remove({ id: this.links.form.id.value, key: this.links.form.key.value });
         });
-        document.getElementById("btn-reset").addEventListener('click', controller.reset);
+        document.getElementById("btn-reset").addEventListener("click", controller.reset);
     },
     formView: function(data) {
         this.links.form.id.value = data.id;
