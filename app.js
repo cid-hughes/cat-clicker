@@ -263,8 +263,10 @@ var view = {
     msgTimeout: 10 * 1000,// 10 seconds
     timer: {
         "tgl": 0,
-        "msg": 0
+        "msg": 0,
+        "img": 0
     },
+    imgTgl: 1,
 
     init: function(fields) {
         this.messageInit();
@@ -347,13 +349,35 @@ var view = {
     // View
     viewInit: function(fields) {
         this.links.view = {};
-        fields.forEach(f=>this.links.view[f] = document.getElementById("view-" + f));
-        this.links.view.image.addEventListener("click", ()=>controller.incrementCounter(
+        fields.forEach(f=>{
+            if (f == "image") {
+                this.links.view["image1"] = document.getElementById("view-image1");
+                this.links.view["image-1"] = document.getElementById("view-image-1");
+            } else this.links.view[f] = document.getElementById("view-" + f);
+        });
+        this.links.view["image1"].addEventListener("click", ()=>controller.incrementCounter(
+            document.getElementById("form-id").value
+        ));
+        this.links.view["image-1"].addEventListener("click", ()=>controller.incrementCounter(
             document.getElementById("form-id").value
         ));
     },
     view: function(data) {// May come back and change this to use text nodes
-        data.fields.forEach(f=>this.links.view[f][ f=="image"?"src":"textContent" ] = data[f]);// removed unscrub
+        data.fields.forEach(f=>{
+            if (f == "image") {
+                clearTimeout(this.timer.img);
+
+                let oldImg = "image" + this.imgTgl;
+                this.imgTgl*= -1;
+
+                this.links.view["image" + this.imgTgl].src = data[f];
+
+                this.links.view[oldImg].style.opacity = 0;
+                this.links.view["image" + this.imgTgl].style.opacity = 1;
+
+                this.timer.img = setTimeout(()=>this.links.view[oldImg].src="", 200);
+            } else this.links.view[f].textContent = data[f];
+        });// removed unscrub
     },
 
     // Form
