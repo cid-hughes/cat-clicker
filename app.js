@@ -1,111 +1,99 @@
-var model = {
-    data: [
-        {
-            name: "Benjamin",
-            image: "images/benjamin.jpg",
-            count: 0
-        },
-        {
-            name: "Leia",
-            image: "images/leia.jpg",
-            count: 0
-        },
-        {
-            name: "Agamemnon",
-            image: "images/agamemnon.jpg",
-            count: 0
-        },
-        {
-            name: "Franklin",
-            image: "images/franklin.jpg",
-            count: 0
-        },
-        {
-            name: "Tom",
-            image: "images/tom.jpg",
-            count: 0
-        },
-        {
-            name: "Ajax",
-            image: "images/ajax.jpg",
-            count: 0
-        },
-        {
-            name: "Archimedes",
-            image: "images/archimedes.jpg",
-            count: 0
-        }
-    ],
-    fields: [],
-    keyLen: 10,
-    keyExpire: 1 * 60 * 1000,//1 minute
+let model = Object.create(null);
+Object.defineProperties(model, {
+    key: { value: Object.create(null) },
+    cat: { value: Object.create(null) },
+
+    init: { value: function() {
+        //localStorage.clear();// Temporary!
+
+        if (this.cat.len && localStorage.getItem("cat_0").substr(0, 1)=="{") return;
+
+        this.cat.insert({ name: "Benjamin",   image: "images/benjamin.jpg",   count: 0, key: "", keyTime: "" });
+        this.cat.insert({ name: "Leia",       image: "images/leia.jpg",       count: 0, key: "", keyTime: "" });
+        this.cat.insert({ name: "Agamemnon",  image: "images/agamemnon.jpg",  count: 0, key: "", keyTime: "" });
+        this.cat.insert({ name: "Franklin",   image: "images/franklin.jpg",   count: 0, key: "", keyTime: "" });
+        this.cat.insert({ name: "Tom",        image: "images/tom.jpg",        count: 0, key: "", keyTime: "" });
+        this.cat.insert({ name: "Ajax",       image: "images/ajax.jpg",       count: 0, key: "", keyTime: "" });
+        this.cat.insert({ name: "Archimedes", image: "images/archimedes.jpg", count: 0, key: "", keyTime: "" });
+    }}
+});
+Object.defineProperties(model.key, {
+    len: { value: 10 },
+    expire: { value: 1 * 60 * 1000 }, // 1 minute
 
     // [0-9][A-Z:65-90][a-z:97-122]
     // [62 = 10 + 26 + 26][35 = 90 - 48 - 7]
     // [7 = 65 - 58][6 = 97 - 91]
     // [55 = 48 + 7][61 = 48 + 7 + 6]
-    keyGen: function(len) {
+    gen: { value: function(len) {
         let arr = new Array(len), c;
         while(len--) {
             c = Math.floor(Math.random() * 62);
             arr[len] = c>9 ? String.fromCharCode(c>35 ? c+61 : c+55) : c;
         }
         return arr.join("");
-    },
-    scrub: function(str) {
-        let div = document.createElement("div");
-        div.appendChild(document.createTextNode(str));
-        return div.innerHTML;
-//        return str.replace(/[&<>'"/g, c=>({
-//            "&": "&amp;",
-//            "<": "&lt;",
-//            ">": "&gt;",
-//            "'": "&apos;",
-//            '"': "&quot;"
-//        })[c]);
+    }},
+    fetch: { value: function(id) {
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
+        if (hash.key && parseInt(hash.keyTime) + this.expire > Date.now()) return false;
+        hash.key = this.gen(this.len);
+        hash.keyTime = Date.now();
+        localStorage.setItem("cat_" + id, JSON.stringify(hash));
+        return hash.key;
+    }},
+    check: { value: function(id, key) {
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
+        if (hash.key===key && parseInt(hash.keyTime) + this.expire > Date.now()) return true;
+        return false;
+    }},
+    clear: { value: function(id, key) {
+        let hash = JSON.parse(localStorage.getItem("cat_" + id));
+        if (hash === null || (hash.key!==key && parseInt(hash.keyTime)) + this.expire > Date.now()) return;
+        hash.key = "";
+        hash.keyTime = "";
+        localStorage.setItem("cat_" + id, JSON.stringify(hash));
+    }}
+});
+Object.defineProperties(model.cat, {
+    fields: { get: ()=>[
+        "name",
+        "image",
+        "count"
+    ]},
+    len: {
+        get: ()=>parseInt(localStorage.getItem("cat_length")),
+        set: (len)=>localStorage.setItem("cat_length", len)
     },
 
-    init: function() {
-        //localStorage.clear();// Temporary!
-
-        this.fields = Object.keys(this.data[0]);
-        if (parseInt(localStorage.getItem("cat_length")) && localStorage.getItem("cat_0").substr(0, 1)=="{") return;
-        localStorage.setItem("cat_length", this.data.length);
-        this.data.forEach((h,i)=>{
-            h.key = "";
-            h.keyTime = "";
-            localStorage.setItem("cat_" + i, JSON.stringify(h));
-        });
-    },
-
-    list: function() {
-        let list = [], len = parseInt(localStorage.getItem("cat_length"));
+    list: { value: function() {
+        let list = [], len = this.len;
         for (let i=0; i<len; i++)
             list.push({id: i, name: JSON.parse(localStorage.getItem("cat_" + i))["name"]});
         return list;
-    },
-    insert: function(data) {
+    }},
+    insert: { value: function(data) {
         let msg;
-        this.clearKey(data.id, data.key);
+        model.key.clear(data.id, data.key);
         if (!data.name || !data.image) {
             msg = "Unable to create new cat. Please fill in Name and Image!";
             console.log(msg);
             return msg;
         }
-        let hash, len = parseInt(localStorage.getItem("cat_length"));
-        localStorage.setItem("cat_length", len + 1);
+        let hash, len = this.len;
+        if (isNaN(len)) len = 0;
+        this.len = len + 1;
         hash = this.fields.reduce((a,f)=>{
-            a[f] = data[f] || 0;// removed scrub
+            a[f] = data[f] || 0;
             return a;
-        }, {});
+        }, Object.create(null));
         hash.key = "";
         hash.keyTime = "";
         localStorage.setItem("cat_" + len, JSON.stringify(hash));
         return len;
-    },
-    select: function(id) {
+    }},
+    select: { value: function(id) {
         let msg;
-        if (id<0 || id>=parseInt(localStorage.getItem("cat_length"))) {
+        if (id<0 || id>=this.len) {
             msg = "Cat ID out of range!";
             console.log(msg);
             return msg;
@@ -116,36 +104,36 @@ var model = {
         hash["fields"] = this.fields.slice(0);
         hash["id"] = id;
         return hash;
-    },
-    update: function(data) {
+    }},
+    update: { value: function(data) {
         let msg;
-        if (!this.checkKey(data.id, data.key)) {
+        if (!model.key.check(data.id, data.key)) {
             msg = "Unable to update cat! Invalid key submitted.";
             console.log(msg);
             return msg;
         }
-        this.clearKey(data.id, data.key);
-        if (data.id<0 || data.id>=parseInt(localStorage.getItem("cat_length"))) {
+        model.key.clear(data.id, data.key);
+        if (data.id<0 || data.id>=this.len) {
             msg = "Unable to update cat! Cat ID out of range.";
             console.log(msg);
             return msg;
         }
         let hash = JSON.parse(localStorage.getItem("cat_" + data.id));
         this.fields.forEach(f=>{
-            if (data[f]!==undefined) hash[f] = data[f];// removed scrub
+            if (data[f]!==undefined) hash[f] = data[f];
         });
         localStorage.setItem("cat_" + data.id, JSON.stringify(hash));
-    },
-    remove: function(data) {
+    }},
+    remove: { value: function(data) {
         let msg;
-        if (!this.checkKey(data.id, data.key)) {
+        if (!model.key.check(data.id, data.key)) {
             msg = "Unable to remove cat! Invalid key submitted.";
             console.log(msg);
             return msg;
         }
-        this.clearKey(data.id, data.key);
-        let len = parseInt(localStorage.getItem("cat_length"));
-        if (data.id<0 || data.id>= len || len<2) {
+        model.key.clear(data.id, data.key);
+        let len = this.len;
+        if (data.id<0 || data.id>=len || len<2) {
             msg = "Unable to remove cat! Cat ID is out of range or there are not enough cats.";
             console.log(msg);
             return msg;
@@ -154,11 +142,11 @@ var model = {
         for (let i=parseInt(data.id); i<len; i++)
             localStorage.setItem("cat_" + i, localStorage.getItem("cat_" + (i + 1)));
         localStorage.removeItem("cat_" + len);
-        localStorage.setItem("cat_length", len);
-    },
-    incrementCount: function(id) {
+        this.len = len;
+    }},
+    incrementCount: { value: function(id) {
         let msg;
-        if (id<0 || id>=parseInt(localStorage.getItem("cat_length"))) {
+        if (id<0 || id>=this.len) {
             msg = "Unable to click cat! Cat ID out of range.";
             console.log(msg);
             return msg;
@@ -166,174 +154,136 @@ var model = {
         let hash = JSON.parse(localStorage.getItem("cat_" + id));
         hash.count++;
         localStorage.setItem("cat_" + id, JSON.stringify(hash));
-    },
+    }}
+});
+Object.seal(model);
+Object.seal(model.key);
+Object.seal(model.cat);
 
-    getKey: function(id) {
-        let hash = JSON.parse(localStorage.getItem("cat_" + id));
-        if (hash.key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return false;
-        hash.key = this.keyGen(this.keyLen);
-        hash.keyTime = Date.now();
-        localStorage.setItem("cat_" + id, JSON.stringify(hash));
-        return hash.key;
-    },
-    checkKey: function(id, key) {
-        let hash = JSON.parse(localStorage.getItem("cat_" + id));
-        if (hash.key===key && parseInt(hash.keyTime) + this.keyExpire > Date.now()) return true;
-        return false;
-    },
-    clearKey: function(id, key) {
-        let hash = JSON.parse(localStorage.getItem("cat_" + id));
-        if (hash === null || (hash.key!==key && parseInt(hash.keyTime)) + this.keyExpire > Date.now()) return;
-        hash.key = "";
-        hash.keyTime = "";
-        localStorage.setItem("cat_" + id, JSON.stringify(hash));
-    }
-};
-var controller = {
-    init: function() {
+/******************************************************************************/
+
+let controller = Object.create(null);
+Object.defineProperties(controller, {
+    init: { value: function() {
         model.init();
-        let data = model.select(0);
+        let data = model.cat.select(0);
         view.init(data.fields);
         this.refresh(0);
-    },
-    reset: function() {
-        let data = view.formState();
-        if (data.showForm) controller.toggle();
+    }},
+    reset: { value: function() {
+        let data = view.form.state();
+        if (data.show) controller.toggle();
         localStorage.clear()
         controller.init();
-    },
+    }},
 
-    refresh: function(id) {
-        let data = model.select(id);
-        if (typeof data == "string") return view.messageView(data);
+    refresh: { value: function(id) {
+        let data = model.cat.select(id);
+        if (typeof data == "string") return view.message.view(data);
         else {
-            view.view(data);
-            view.formView(data);
+            view.view.view(data);
+            view.form.view(data);
         }
-        view.listView(model.list());
-    },
-
-    toggle: function() {
-        let data = view.formState(), key;
-        if (data.showForm) {
-            model.clearKey(data.id, data.key);
-            view.toggle();
-        } else if (key = model.getKey(data.id)) {
-            view.toggle(key);
+        view.list.view(model.cat.list());
+    }},
+    toggle: { value: function() {
+        let data = view.form.state(), key;
+        if (data.show) {
+            model.key.clear(data.id, data.key);
+            view.form.toggle();
+        } else if (key = model.key.fetch(data.id)) {
+            view.form.toggle(key);
         } else {
-            view.messageView("Failed to generate a key! Another user may be updating this cat.");
+            view.message.view("Failed to generate a key! Another user may be updating this cat.");
         }
-    },
-    click: function(id) {
-        let data = view.formState();
-        if (data.showForm) this.toggle();
-        this.refresh(id);
-    },
-    incrementCounter(id) {
-        let res = model.incrementCount(id);
-        if (res) view.messageView(res);
-        this.refresh(id);
-    },
-    create: function(data) {
-        let res = model.insert(data);
+    }},
+
+    create: { value: function(data) {
+        let res = model.cat.insert(data);
         this.toggle();
         if (typeof res == "string") {
-            view.messageView(res);
+            view.message.view(res);
             res = data.id;
         }
         this.refresh(res);
-    },
-    update: function(data) {
-        let res = model.update(data);
+    }},
+    click: { value: function(id) {
+        let data = view.form.state();
+        if (data.show) this.toggle();
+        this.refresh(id);
+    }},
+    update: { value: function(data) {
+        let res = model.cat.update(data);
         this.toggle();
-        if (typeof res == "string") view.messageView(res);
+        if (typeof res == "string") view.message.view(res);
         this.refresh(data.id);
-    },
-    remove: function(data) {
-        let res = model.remove(data);
+    }},
+    remove: { value: function(data) {
+        let res = model.cat.remove(data);
         this.toggle();
-        if (typeof res == "string") view.messageView(res);
+        if (typeof res == "string") view.message.view(res);
         this.refresh(0);
-    }
-};
-var view = {
-    showForm: false,
-    links: {},
-    formTimeout: model.keyExpire,
-    msgTimeout: 10 * 1000,// 10 seconds
+    }},
+    incrementCounter: { value: function(id) {
+        let res = model.cat.incrementCount(id);
+        if (res) view.message.view(res);
+        this.refresh(id);
+    }}
+});
+Object.seal(controller);
+
+/******************************************************************************/
+
+let view = Object.create(null);
+Object.defineProperties(view, {
+    message: { value: Object.create(null) },
+    list: { value: Object.create(null) },
+    view: { value: Object.create(null) },
+    form: { value: Object.create(null) },
+
+    init: { value: function(fields) {
+        this.message.init();
+        this.list.init();
+        this.view.init(fields);
+        this.form.init(fields);
+    }}
+});
+Object.defineProperties(view.message, {
+    timeout: { value: 10 * 1000 }, // 10 seconds
     timer: {
-        "tgl": 0,
-        "msg": 0,
-        "img": 0
+        value: 0,
+        writable: true
     },
-    imgTgl: 1,
+    links: { value: Object.create(null) },
 
-    init: function(fields) {
-        this.messageInit();
-        this.listInit();
-        this.viewInit(fields);
-        this.formInit(fields);
-    },
-
-    // Misc
-    formState: function() {
-        return {
-            id: this.links.form.id.value,
-            key: this.links.form.key.value,
-            showForm: this.showForm
-        };
-    },
-    unscrub: function(str) {
-        let div = document.createElement("div");
-        div.innerHTML = str;
-        let child = div.childNodes[0];
-        return child ? child.nodeValue : "";
-    },
-    toggle: function(key) {
-        if (this.showForm) {
-            this.showForm = false;
-            clearTimeout(this.timer.tgl);
-            this.links.form.key.value = "";
-            document.getElementById("left").style.zIndex = "0";
-            document.getElementById("left").style.opacity = "0";
-            document.getElementById("right").style.zIndex = "1";
-            document.getElementById("right").style.opacity = "1";
-        } else {
-            this.showForm = true;
-            this.links.form.key.value = key;
-            document.getElementById("left").style.zIndex = "1";
-            document.getElementById("left").style.opacity = "1";
-            document.getElementById("right").style.zIndex = "0";
-            document.getElementById("right").style.opacity = "0.2";
-            this.timer.tgl = setTimeout(controller.toggle, view.formTimeout);
-        }
-    },
-
-    // Messages
-    messageInit: function() {
+    init: { value: function() {
         this.links.msg = document.getElementById("msg");
-    },
-    messageView: function(str) {
-        this.messageClear();
-        this.links.msg.appendChild(document.createTextNode(str));
-        this.timer.msg = setTimeout(view.messageClear, this.msgTimeout);
-    },
-    messageClear: function() {
-        if (!view.timer.msg) return;
-        clearTimeout(view.timer.msg);
-        view.timer.msg = 0;
-        view.links.msg.innerHTML = "";
-    },
+    }},
 
-    // List
-    listInit: function() {
+    view: { value: function(str) {
+        this.clear();
+        this.links.msg.appendChild(document.createTextNode(str));
+        this.timer = setTimeout(view.message.clear, this.timeout);
+    }},
+    clear: { value: function() {
+        if (!view.message.timer) return;
+        clearTimeout(view.message.timer);
+        view.message.timer = 0;
+        view.message.links.msg.innerHTML = "";
+    }}
+});
+Object.defineProperties(view.list, {
+    links: { value: Object.create(null) },
+
+    init: { value: function() {
         this.links.list = document.getElementById("menu");
-    },
-    listView: function(data) {
+    }},
+
+    view: { value: function(data) {
         this.links.list.innerHTML = "";
         data.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0).forEach(el=>{
             let li = document.createElement("li");
-            li.appendChild(document.createTextNode(el.name));// removed unscrub
+            li.appendChild(document.createTextNode(el.name));
             li.addEventListener("click", ev=>{
                 ev = ev || window.event;
                 let target = ev.target || ev.srcElement, last = document.getElementsByClassName("selected");
@@ -341,80 +291,132 @@ var view = {
                 target.classList.add("selected");
                 controller.click(el.id);
             });
-            if (this.links.form.id.value == el.id) li.classList.add("selected");
+            if (view.form.links.id.value == el.id) li.classList.add("selected");
             this.links.list.appendChild(li);
         });
+    }}
+});
+Object.defineProperties(view.view, {
+    timer: {
+        value: 0,
+        writable: true
     },
+    img: {
+        value: 1,
+        writable: true
+    },
+    links: { value: Object.create(null) },
 
-    // View
-    viewInit: function(fields) {
-        this.links.view = {};
+    init: { value: function(fields) {
         fields.forEach(f=>{
             if (f == "image") {
-                this.links.view["image1"] = document.getElementById("view-image1");
-                this.links.view["image-1"] = document.getElementById("view-image-1");
-            } else this.links.view[f] = document.getElementById("view-" + f);
+                this.links["image1"] = document.getElementById("view-image1");
+                this.links["image-1"] = document.getElementById("view-image-1");
+            } else this.links[f] = document.getElementById("view-" + f);
         });
-        this.links.view["image1"].addEventListener("click", ()=>controller.incrementCounter(
+        this.links["image1"].addEventListener("click", ()=>controller.incrementCounter(
             document.getElementById("form-id").value
         ));
-        this.links.view["image-1"].addEventListener("click", ()=>controller.incrementCounter(
+        this.links["image-1"].addEventListener("click", ()=>controller.incrementCounter(
             document.getElementById("form-id").value
         ));
-    },
-    view: function(data) {// May come back and change this to use text nodes
+    }},
+
+    view: { value: function(data) {
         data.fields.forEach(f=>{
             if (f == "image") {
-                clearTimeout(this.timer.img);
+                clearTimeout(this.timer);
 
-                let oldImg = "image" + this.imgTgl;
-                this.imgTgl*= -1;
+                let oldImg = "image" + this.img;
+                this.img*= -1;
 
-                this.links.view["image" + this.imgTgl].src = data[f];
+                this.links["image" + this.img].src = data[f];
 
-                this.links.view[oldImg].style.opacity = 0;
-                this.links.view["image" + this.imgTgl].style.opacity = 1;
+                this.links[oldImg].style.opacity = 0;
+                this.links["image" + this.img].style.opacity = 1;
 
-                this.timer.img = setTimeout(()=>this.links.view[oldImg].src="", 200);
-            } else this.links.view[f].textContent = data[f];
-        });// removed unscrub
+                this.timer = setTimeout(()=>this.links[oldImg].src="", 200);
+            } else this.links[f].textContent = data[f];
+        });
+    }}
+});
+Object.defineProperties(view.form, {
+    show: {
+        value: false,
+        writable: true
     },
+    timeout: { value: model.key.expire },
+    timer: {
+        value: 0,
+        writable: true
+    },
+    links: { value: Object.create(null) },
 
-    // Form
-    formInit: function(fields) {
-        this.links.form = {
-            id: document.getElementById("form-id"),
-            key: document.getElementById("form-key")
-        };
-        fields.forEach(f=>this.links.form[f] = document.getElementById("form-" + f));
+    init: { value: function(fields) {
+        this.links.id = document.getElementById("form-id");
+        this.links.key = document.getElementById("form-key");
+        fields.forEach(f=>this.links[f] = document.getElementById("form-" + f));
 
         document.getElementById("edit").addEventListener("click", controller.toggle);
         document.getElementById("btn-new").addEventListener("click", ()=>{
-            let data = { id: this.links.form.id.value, key: this.links.form.key.value };
-            fields.forEach(f=>data[f] = this.links.form[f].value);
+            let data = { id: this.links.id.value, key: this.links.key.value };
+            fields.forEach(f=>data[f] = this.links[f].value);
             controller.create(data);
         });
         document.getElementById("btn-save").addEventListener("click", ()=>{
-            let data = { id: this.links.form.id.value, key: this.links.form.key.value };
+            let data = { id: this.links.id.value, key: this.links.key.value };
             fields.forEach(f=>{
-                if (this.links.form[f].value !== "") data[f] = this.links.form[f].value;
+                if (this.links[f].value !== "") data[f] = this.links[f].value;
             });
             controller.update(data);
         });
         document.getElementById("btn-cancel").addEventListener("click", ()=>{
-            fields.forEach(f=>this.links.form[f].value = "");
+            fields.forEach(f=>this.links[f].value = "");
             controller.toggle();
         });
         document.getElementById("btn-delete").addEventListener("click", ()=>{
-            controller.remove({ id: this.links.form.id.value, key: this.links.form.key.value });
+            controller.remove({ id: this.links.id.value, key: this.links.key.value });
         });
         document.getElementById("btn-reset").addEventListener("click", controller.reset);
-    },
-    formView: function(data) {
-        this.links.form.id.value = data.id;
+    }},
+
+    state: { value: function() {
+        return {
+            id: this.links.id.value,
+            key: this.links.key.value,
+            show: this.show
+        };
+    }},
+    toggle: { value: function(key) {
+        if (this.show) {
+            this.show = false;
+            clearTimeout(this.timer);
+            this.links.key.value = "";
+            document.getElementById("left").style.zIndex = "0";
+            document.getElementById("left").style.opacity = "0";
+            document.getElementById("right").style.zIndex = "1";
+            document.getElementById("right").style.opacity = "1";
+        } else {
+            this.show = true;
+            this.links.key.value = key;
+            document.getElementById("left").style.zIndex = "1";
+            document.getElementById("left").style.opacity = "1";
+            document.getElementById("right").style.zIndex = "0";
+            document.getElementById("right").style.opacity = "0.2";
+            this.timer = setTimeout(controller.toggle, view.form.timeout);
+        }
+    }},
+
+    view: { value: function(data) {
+        this.links.id.value = data.id;
         data.fields.forEach(f=>{
-            this.links.form[f].value = "";
-            this.links.form[f].placeholder = data[f];// removed unscrub
+            this.links[f].value = "";
+            this.links[f].placeholder = data[f];
         });
-    }
-};
+    }}
+});
+Object.seal(view);
+Object.seal(view.message);
+Object.seal(view.list);
+Object.seal(view.view);
+Object.seal(view.form);
